@@ -1,0 +1,20 @@
+// Proto file for all data protobufs
+
+syntax = "proto3";
+
+package weather_data;
+
+message WeatherDataFull {
+    uint64 timestamp = 1;
+    float temperature = 2;
+    float humidity = 3;
+    float pressure = 4;
+    float wind_speed = 5;
+    int32 wind_direction = 6;
+    int weather_code = 7;
+    float precipitation_cm = 8;
+    float uv_index = 9;
+    float render_distance_km = 10;
+    int32 cloud_height_m = 11;
+    int32 cloud_cover_percent = 12;
+}
