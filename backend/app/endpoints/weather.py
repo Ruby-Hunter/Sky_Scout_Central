@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 router = APIRouter()
 
 
-async def fetch_weather_data_from_api(lat: float, lon: float) -> WeatherDataFull:
+async def fetch_weather_data_from_api(lat: float, lon: float):
     url = (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
@@ -24,6 +24,22 @@ async def fetch_weather_data_from_api(lat: float, lon: float) -> WeatherDataFull
         "visibility"
         "cloud_base"
     )
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
+        data = response.json()
+
+    current = data["current"]
+
+    return {
+        "wind_speed": current["wind_speed_10m"],
+        "wind_direction": current["wind_direction_10m"],
+        "weather_code": current["weather_code"],
+        "precipitation_cm": current["precipitation"],
+        "uv_index": current["uv_index"],
+        "render_distance_km": current["visibility"],
+        "cloud_height_m": current["cloud_base"],
+    }
 
 
 @router.post("/upload")
