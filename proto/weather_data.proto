@@ -11,7 +11,7 @@ message WeatherDataFull {
     float pressure = 4;
     float wind_speed = 5;
     int32 wind_direction = 6;
-    int weather_code = 7;
+    int32 weather_code = 7;
     float precipitation_cm = 8;
     float uv_index = 9;
     float render_distance_km = 10;

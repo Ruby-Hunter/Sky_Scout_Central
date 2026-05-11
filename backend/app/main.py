@@ -1,5 +1,8 @@
+from database import Base, engine, get_db
 from endpoints import health, weather
 from fastapi import FastAPI
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
