@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 router = APIRouter()
 
 
-async def fetch_weather_data_from_api(lat: float, lon: float) -> WeatherDataFromAPI:
+async def _fetch_weather_data_from_api(lat: float, lon: float) -> WeatherDataFromAPI:
     url = (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
@@ -23,7 +23,8 @@ async def fetch_weather_data_from_api(lat: float, lon: float) -> WeatherDataFrom
         "precipitation,"
         "uv_index,"
         "visibility,"
-        "cloud_base"
+        "cloud_base,"
+        "cloud_cover"
     )
 
     async with httpx.AsyncClient() as client:
@@ -50,10 +51,13 @@ async def fetch_weather_data_from_api(lat: float, lon: float) -> WeatherDataFrom
             current["visibility"] / 1000 if "visibility" in current else None
         ),
         cloud_height_m=(current["cloud_base"] if "cloud_base" in current else None),
+        cloud_cover_percent=(
+            current["cloud_cover"] if "cloud_cover" in current else None
+        ),
     )
 
 
-async def fetch_full_weather_data_from_api(lat: float, lon: float) -> WeatherDataFull:
+async def _fetch_full_weather_data_from_api(lat: float, lon: float) -> WeatherDataFull:
     url = (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
@@ -67,7 +71,8 @@ async def fetch_full_weather_data_from_api(lat: float, lon: float) -> WeatherDat
         "precipitation,"
         "uv_index,"
         "visibility,"
-        "cloud_base"
+        "cloud_base,"
+        "cloud_cover"
     )
 
     async with httpx.AsyncClient() as client:
@@ -96,7 +101,9 @@ async def fetch_full_weather_data_from_api(lat: float, lon: float) -> WeatherDat
         if "visibility" in current
         else None,
         cloud_height_m=current["cloud_base"] if "cloud_base" in current else None,
-        cloud_cover_percent=None,
+        cloud_cover_percent=current["cloud_cover"]
+        if "cloud_cover" in current
+        else None,
     )
 
 
@@ -104,7 +111,7 @@ async def fetch_full_weather_data_from_api(lat: float, lon: float) -> WeatherDat
 async def upload_weather_data(
     upload_data: WeatherDataUpload, db: Annotated[Session, Depends(get_db)]
 ):
-    weather_data = await fetch_weather_data_from_api(
+    weather_data = await _fetch_weather_data_from_api(
         upload_data.latitude, upload_data.longitude
     )
     new_data = models.WeatherData(
@@ -119,6 +126,7 @@ async def upload_weather_data(
         uv_index=weather_data.uv_index,
         render_distance_km=weather_data.render_distance_km,
         cloud_height_m=weather_data.cloud_height_m,
+        cloud_cover_percent=weather_data.cloud_cover_percent,
     )
     db.add(new_data)
     db.commit()
@@ -126,11 +134,11 @@ async def upload_weather_data(
     return new_data
 
 
-@router.post("/fetch_from_coords")
+@router.post("/coords")
 async def fetch_weather_from_coords(
     lat: float, lon: float, db: Annotated[Session, Depends(get_db)]
 ):
-    weather_data = await fetch_full_weather_data_from_api(lat, lon)
+    weather_data = await _fetch_full_weather_data_from_api(lat, lon)
     new_data = models.WeatherData(
         timestamp=weather_data.timestamp,
         temperature=weather_data.temperature,
@@ -143,6 +151,7 @@ async def fetch_weather_from_coords(
         uv_index=weather_data.uv_index,
         render_distance_km=weather_data.render_distance_km,
         cloud_height_m=weather_data.cloud_height_m,
+        cloud_cover_percent=weather_data.cloud_cover_percent,
     )
     db.add(new_data)
     db.commit()
@@ -173,4 +182,23 @@ def get_weather_latest(db: Annotated[Session, Depends(get_db)]):
         "uv_index": weather_data.uv_index,
         "render_distance_km": weather_data.render_distance_km,
         "cloud_height": weather_data.cloud_height_m,
+        "cloud_cover_percent": weather_data.cloud_cover_percent,
+    }
+
+
+@router.get("/snapshot")
+def get_weather_snapshot(db: Annotated[Session, Depends(get_db)]):
+    result = db.execute(
+        select(models.WeatherData)
+        .order_by(models.WeatherData.timestamp.desc())
+        .limit(1)
+    )
+    weather_data = result.scalars().first()
+    if not weather_data:
+        raise HTTPException(
+            status_code=404, detail="No weather data found; database may be empty."
+        )
+    return {
+        "temp": weather_data.temperature,
+        "weather_code": weather_data.weather_code,
     }

@@ -16,6 +16,7 @@ class WeatherDataFromAPI(BaseModel):
     uv_index: Optional[float]
     render_distance_km: Optional[float]
     cloud_height_m: Optional[int]
+    cloud_cover_percent: Optional[int]
 
 
 class WeatherDataFull(WeatherDataBase):
